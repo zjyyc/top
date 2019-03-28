@@ -1,7 +1,22 @@
 var bodyParser = require('body-parser');
 var urlEncodedParser = bodyParser.urlencoded({ extended: false });
+var btoa = require('btoa');
+var atob = require('atob');
 var DataBase = require('../dataBase');
+
+var getUser = function(req){
+    try{
+        var user = decodeURIComponent(atob(decodeURIComponent(req.cookies.user)));
+        return JSON.parse(user);
+    }
+    catch(e){
+        console.log(e);
+        return null;
+    }
+}
+
 function Teach(){
+
     this.init = function(app){
         app.get('/teach/login.json' , function(req , res){
             var dataBase = new DataBase();
@@ -16,7 +31,7 @@ function Teach(){
                 }
                 else{
                     if(rows[0].passwd == query.passwd){
-                        res.cookie('user' , Buffer.from(encodeURIComponent(JSON.stringify(rows[0]))).toString('base64'));
+                        res.cookie('user' , btoa(encodeURIComponent(JSON.stringify(rows[0]))));
                         rs = {
                             code : 0 , 
                             data : rows[0]
@@ -32,6 +47,15 @@ function Teach(){
                 res.send(JSON.stringify(rs));
             })
         });
+
+        app.get('/teach/logout.json' , function(req , res){
+            res.cookie('user' , '' );
+            rs = {
+                code : 0 
+            }
+            res.send(JSON.stringify(rs));
+        });
+
         app.post('/teach/register.json' , urlEncodedParser , function(req , res){
             var dataBase = new DataBase();
             var query = JSON.parse(req.body.data);
@@ -48,13 +72,60 @@ function Teach(){
 
         app.get('/teach/get-my-work.json' , function(req , res){
             var dataBase = new DataBase();
-            console.log(decodeURIComponent(Buffer.from(req.cookies.user , 'base64').toString()));
-            res.send('haha');
-            // var user = req.cookies;
-            // dataBase.query('select id , username , pic , passwd , class1 , data from student where id = :id' , query , function(rows){
-            //     res.send(JSON.stringify(rows));
-            // });
+            // console.log(decodeURIComponent(Buffer.from(req.cookies.user , 'base64').toString()));
+            var user = getUser(req);
+            if(!user){
+                res.send({code : -1001});
+            }
+            dataBase.query('select id , username , pic , passwd , class1 , data from student where id = :id' , user , function(rows){
+                res.send({
+                    code : 0 ,
+                    data : rows[0].data
+                });
+            });
         });
+        app.get('/teach/get-work-by-class.json' , function(req , res){
+            var dataBase = new DataBase();
+            var user = getUser(req);
+            if(user.type > 0){
+                res.send({
+                    code : -11 ,
+                    msg : '对不起，你没有该权限'
+                })
+            }
+            else{
+                dataBase.query('select id , username , pic  , class1 , data from student where class1 = :class1' , 
+                    JSON.parse(req.query.data) , function(rows){
+                        res.send({
+                            code : 0 ,
+                            data : rows
+                        })
+                });
+            }
+        });
+        app.post('/teach/save-work.json' , urlEncodedParser , function(req , res){
+            var dataBase = new DataBase();
+            var json = JSON.parse(req.body.data);
+            dataBase.query('update student set data = :data where id = :id' , 
+                json , function(){
+                    res.send({
+                        code : 0 
+                    })
+            });
+        });
+
+
     }
 }
 module.exports = Teach;
+
+
+
+
+
+
+
+
+
+
+
