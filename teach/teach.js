@@ -2,7 +2,7 @@ var bodyParser = require('body-parser');
 var urlEncodedParser = bodyParser.urlencoded({ extended: false });
 var btoa = require('btoa');
 var atob = require('atob');
-var DataBase = require('../dataBase');
+var DataBase = require('../database');
 
 var getUser = function(req){
     try{
